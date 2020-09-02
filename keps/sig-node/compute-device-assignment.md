@@ -13,7 +13,7 @@ approvers:
   - "@sig-node-leads"
 editor: "@dashpole"
 creation-date: "2018-07-19"
-last-updated: "2019-04-30"
+last-updated: "2020-09-02"
 status: implementable
 ---
 # Kubelet endpoint for device assignment observation details 
@@ -57,15 +57,30 @@ In this document we will discuss the motivation and code changes required for in
 
 ![device monitoring architecture](https://user-images.githubusercontent.com/3262098/43926483-44331496-9bdf-11e8-82a0-14b47583b103.png)
 
+## Topology aware scheduling
+This interface can be used to the available resources on the worker node. The kubelet is the best source of information because it manages the device plugins.
+This information can then be used in NUMA aware scheduling.
 
 ## Changes
 
-Add a v1alpha1 Kubelet GRPC service, at `/var/lib/kubelet/pod-resources/kubelet.sock`, which returns information about the kubelet's assignment of devices to containers. It obtains this information from the internal state of the kubelet's Device Manager. The GRPC Service returns a single PodResourcesResponse, which is shown in proto below:
+Add a v1alpha1 Kubelet GRPC service, at `/var/lib/kubelet/pod-resources/kubelet.sock`, which returns information about
+- the devices which kubelet knows about from the device plugins.
+- the kubelet's assignment of devices to containers.
+The GRPC service obtains this information from the internal state of the kubelet's Device Manager.
+The GRPC Service is described in proto below:
 ```protobuf
 // PodResources is a service provided by the kubelet that provides information about the
 // node resources consumed by pods and containers on the node
 service PodResources {
     rpc List(ListPodResourcesRequest) returns (ListPodResourcesResponse) {}
+    rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse) {}
+}
+
+message ListDevicesRequest {}
+
+// ListDevicesResponses contains informations about all the devices known by the kubelet
+message ListDevicesResponse {
+    repeated ContainerDevices devices = 1;
 }
 
 // ListPodResourcesRequest is the request made to the PodResources service
@@ -170,3 +185,4 @@ Beta:
 - 2018-11-15: Implementation and e2e test merged before 1.13 release: kubernetes/kubernetes#70508
 - 2019-04-30: Demo of production GPU monitoring by NVIDIA
 - 2019-04-30: Agreement in sig-node to move feature to beta in 1.15
+- 2020-09-02: Added the ListDevices endpoint
