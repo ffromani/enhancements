@@ -155,7 +155,8 @@ enum WatchPodAction {
 message WatchPodResourcesResponse {
     WatchPodAction action = 1;
     string uid = 2;
-    repeated PodResources pod_resources = 3;
+    int64 resource_version = 3;
+    PodResources pod_resources = 4;
 }
 
 // PodResources contains information about the node resources assigned to a pod
