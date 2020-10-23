@@ -216,7 +216,8 @@ ContainerDevices could represent it as following:
 ```
 
 Using the `Watch` endpoint, client applications can be notified of the pod resource allocation changes as soon as possible.
-However, the state of a pod will not be sent up until the first resource allocation change, which is the pod deletion in the worst case.
+Users of the API must be aware that the implemantation is allowed to not send the state of a pod up until the actual resource allocation
+change is accepted by the system.
 Client applications who need to have the complete resource allocation picture thus need to consume both `List` and `Watch` endpoints.
 
 The `resourceVersion` found in the responses of both APIs allows client applications to identify the most recent information.
@@ -349,6 +350,7 @@ Feature only collects data when requests comes in, data is then garbage collecte
 - 2020-07-06: Add Topology and cpus into PodResources interface
 - 2020-09-02: Add the GetAllocatableResources endpoint
 - 2020-10-01: KEP extended with Watch API
+- 2020-10-23: Watch API followups and clarifications
 
 ## Alternatives
 
