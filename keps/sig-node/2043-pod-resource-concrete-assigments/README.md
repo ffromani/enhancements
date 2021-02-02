@@ -115,7 +115,7 @@ This gRPC service returns information about
 The GRPC service obtains this information from the internal state of the kubelet's Device Manager and CPU Manager respectively.
 The GRPC Service exposes two endpoints:
 - `List`, which returns a single PodResourcesResponse, enabling monitor applications to poll for resources allocated to pods and containers on the node.
-- `Watch`, which returns a stream of PodResourcesResponse, enabling monitor applications to be notified of new resource allocation, release or resource allocation updates, using the `action` field in the response.
+- `GetAllocatableResources`, which return a single AllocatableResourcesResponse, enabling applications to know about the node capacity in terms of computing resources.
 
 This is shown in proto below:
 ```protobuf
@@ -124,12 +124,11 @@ This is shown in proto below:
 service PodResources {
     rpc List(ListPodResourcesRequest) returns (ListPodResourcesResponse) {}
     rpc GetAllocatableResources(AllocatableResourcesRequest) returns (AllocatableResourcesResponse) {}
-    rpc Watch(WatchPodResourcesRequest) returns (stream WatchPodResourcesResponse) {}
 }
 
 message AllocatableResourcesRequest {}
 
-// AvailableResourcesResponses contains informations about all the devices known by the kubelet
+// AllocatableResourcesResponses contains informations about all the devices known by the kubelet
 message AllocatableResourcesResponse {
     repeated ContainerDevices devices = 1;
     repeated int64 cpu_ids = 2;
@@ -141,21 +140,6 @@ message ListPodResourcesRequest {}
 // ListPodResourcesResponse is the response returned by List function
 message ListPodResourcesResponse {
     repeated PodResources pod_resources = 1;
-}
-
-// WatchPodResourcesRequest is the request made to the Watch PodResourcesLister service
-message WatchPodResourcesRequest {}
-
-enum WatchPodAction {
-    ADDED = 0;
-    DELETED = 1;
-}
-
-// WatchPodResourcesResponse is the response returned by Watch function
-message WatchPodResourcesResponse {
-    WatchPodAction action = 1;
-    string uid = 2;
-    repeated PodResources pod_resources = 3;
 }
 
 // PodResources contains information about the node resources assigned to a pod
@@ -215,27 +199,6 @@ ContainerDevices could represent it as following:
 ]
 ```
 
-Using the `Watch` endpoint, client applications can be notified of the pod resource allocation changes as soon as possible.
-However, the state of a pod will not be sent up until the first resource allocation change, which is the pod deletion in the worst case.
-Client applications who need to have the complete resource allocation picture thus need to consume both `List` and `Watch` endpoints.
-
-The `resourceVersion` found in the responses of both APIs allows client applications to identify the most recent information.
-The `resourceVersion` value is updated following the same semantics of pod `resourceVersion` value, and the implementation
-may use the same value from the corresponding pods.
-To keep the implementation simple as possible, the kubelet does *not* store any historical list of changes.
-
-In order to make sure not to miss any updates, client application can:
-1. call the `Watch` endpoint to get a stream of changes.
-2. call the `List` endpoint to get the state of all the pods in the node.
-3. reconcile updates using the `resourceVersion`.
-
-In order to make the resource accounting on the client side, safe and easy as possible the `Watch` implementation
-will guarantee ordering of the event delivery in such a way that the capacity invariants are always preserved, and the value
-will be consistent after each event received - not only at steady state.
-Consider the following scenario with 10 devices, all allocated: pod A with device D1 allocated gets deleted, then
-pod B starts and gets device D1 again. In this case `Watch` will guarantee that `DELETE` and `ADDED` events are delivered
-in the correct order.
-
 ### Test Plan
 
 Given that the API allows observing what device has been associated to what container, we need to be testing different configurations, such as:
@@ -246,7 +209,7 @@ Given that the API allows observing what device has been associated to what cont
 
 We have identified two main ways of testing this API:
 - Unit Tests which won't rely on gRPC. They will test different configurations of pods and devices.
-- Node E2E tests which will allow us to test the service itself. The Tests will cover the both a list-only client and a list-and-watch client.
+- Node E2E tests which will allow us to test the service itself.
 
 E2E tests are explicitly not written because they would require us to generate and deploy a custom container.
 The infrastructure required is expensive and it is not clear what additional testing (and hence risk reduction) this would provide compare to node e2e tests.
@@ -349,6 +312,7 @@ Feature only collects data when requests comes in, data is then garbage collecte
 - 2020-07-06: Add Topology and cpus into PodResources interface
 - 2020-09-02: Add the GetAllocatableResources endpoint
 - 2020-10-01: KEP extended with Watch API
+- 2021-02-02: KEP updated removing the Watch API, postponed to a later KEP.
 
 ## Alternatives
 
